@@ -5,9 +5,59 @@ This repo contains the source for a generic 2D search tree written in C++. A Usa
 
 The example provided uses the tree to search for a set of sprites near a test sprite controlled by the mouse. A video of this example can be found [here](https://www.youtube.com/watch?v=62l-GwzC8qk).
 
+## API
+
+For usage notes and the definitions of `Value` and `NodeCompare`, see the [Usage](#usage) section.
+
+```c++
+
+// Default Constructor. Predicate is nullptr. The tree will not add new values until a predicate is set.
+SearchTree2D<Value, NodeCompare>();
+
+// Constructor with an initial predicate.
+SearchTree2D<Value, NodeCompare>(SearchPredicate<Value, NodeCompare>*);
+
+// Sets the predicate used by the tree. nullptr is a valid input and will disallow tree operations.
+// inputs:
+// 		User predicate defining tree behavior
+void setPredicate(SearchPredicate<Value, NodeCompare>*);
+
+// Adds a new value to the tree. This will not change the tree structure. Values will be added to the nodes whose search spaces are satisfied by the value
+// or will be added to the root if no nodes exist or no search spaces are satisfied
+// inputs:
+// 		New value
+void add(const Value& val);
+
+// Removes a value from the tree
+// inputs:
+//		Value to remove
+void remove(const Value& val);
+
+// Clears the tree of all values
+void clear();
+
+// Given a test comparison object, returns a set of values belonging to nodes whose search space overlaps (as defined by the predicate)
+// with the input search space
+// inputs:
+// 		Node comparison object
+std::set<Value> getNearbyValues(const NodeCompare&) const;
+
+// Rebalances the tree, possibly removing or adding nodes as necessary.
+// This should be called if the location of values in the tree may have changed
+// as the tree will not update on value changes
+void rebalance();
+
+// The tree also support copy, move, assignment, and swap
+SearchTree2D(const SearchTree2D&);
+SearchTree2D(SearchTree2D&&);
+SearchTree2D& operator=(SearchTree2D);
+void swap(SearchTree2D& left, SearchTree2D& right);
+```
+
 ## Usage
 
 The user must implement the interface below that defines the behavior of the tree. `Value` is the type stored in the tree and `NodeCompare` defines a Node's search space.
+
 ```c++
 //=======================================
 // Implementation interface
