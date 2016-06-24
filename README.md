@@ -22,8 +22,9 @@ SearchTree2D<Value, NodeCompare>(SearchPredicate<Value, NodeCompare>*);
 // 		User predicate defining tree behavior
 void setPredicate(SearchPredicate<Value, NodeCompare>*);
 
-// Adds a new value to the tree. This will not change the tree structure. Values will be added to the nodes whose search spaces are satisfied by the value
-// or will be added to the root if no nodes exist or no search spaces are satisfied
+// Adds a new value to the tree. This will not change the tree structure. Values will be added to 
+// the nodes whose search spaces are satisfied by the value or will be added to the root if no 
+// nodes exist or no search spaces are satisfied
 // inputs:
 // 		New value
 void add(const Value& val);
@@ -36,8 +37,8 @@ void remove(const Value& val);
 // Clears the tree of all values
 void clear();
 
-// Given a test comparison object, returns a set of values belonging to nodes whose search space overlaps (as defined by the predicate)
-// with the input search space
+// Given a test comparison object, returns a set of values belonging to nodes whose search spaces 
+// overlap (as defined by the predicate) with the input search space
 // inputs:
 // 		Node comparison object
 std::set<Value> getNearbyValues(const NodeCompare&) const;
@@ -81,8 +82,12 @@ public:
 	// inputs: 
 	//		parentRegion - search space for the parent node
 	//		values - values belonging to the parent
-	//		quads - A mapping of Region code to child search spaces. The NodeCompare values will be used to build the child nodes
-	virtual void buildQuadrantsFromData(const NodeCompare& parentRegion, const std::set<Value>& values, const std::map<RegionCode, NodeCompare&>& quads) = 0;
+	//		quads - A mapping of Region code to child search spaces. 
+	//				The NodeCompare values will be used to build the child nodes
+	virtual void buildQuadrantsFromData(const NodeCompare& parentRegion, 
+										const std::set<Value>& values, 
+										const std::map<RegionCode, 
+										NodeCompare&>& quads) = 0;
 
 	// Returns whether or not a value belongs to a node's search space
 	// inputs:
