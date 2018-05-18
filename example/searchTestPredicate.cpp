@@ -46,9 +46,7 @@ orc::Collider TestPredicate::buildRegionFromData(const std::set<SearchTestSprite
 }
 
 // Subdivide the search space into four quadrants
-void TestPredicate::buildQuadrantsFromData(const orc::Collider& node,
-						const std::set<SearchTestSprite*>& data,
-						const std::map<RegionCode, orc::Collider&>& quads) {
+void TestPredicate::buildQuadrantsFromData(const orc::Collider& node, const std::set<SearchTestSprite*>& data, const std::map<RegionCode, orc::Collider&>& quads) {
 
 	GLfloat w = node.getScale().x / 2;
 	GLfloat h = node.getScale().y / 2;
@@ -79,7 +77,7 @@ void TestPredicate::buildQuadrantsFromData(const orc::Collider& node,
 }
 
 // Test sprite collider against node search space
-bool TestPredicate::satisfies(const orc::Collider& node, SearchTestSprite* test) {
+bool TestPredicate::satisfies(const orc::Collider& node, const SearchTestPtr& test) {
 	return node.collideAABB(test->getCollider());
 }
 

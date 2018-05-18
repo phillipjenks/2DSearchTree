@@ -13,6 +13,7 @@
 #include "Scene.h"
 #include "searchTree2D.h"
 #include "SingleThread.h"
+#include "searchTestPredicate.h"
 
 // Forward Declarations
 namespace orc {
@@ -21,9 +22,8 @@ namespace orc {
 }
 
 class SearchTestSprite;
-class TestPredicate;
 
-using TestTree = SearchTree2D<SearchTestSprite*, orc::Collider>;
+using TestTree = SearchTree2D<SearchTestSprite*, orc::Collider, TestPredicate>;
 
 class SearchTestScene : public orc::Scene {
  public:
@@ -44,8 +44,6 @@ class SearchTestScene : public orc::Scene {
 	virtual void postUpdate();
 
  private:
-	// A handle to our test predicate
-	TestPredicate* m_testPredicate;
 
 	// A handle to our mouse
 	orc::DrawableMouse* m_mouse;

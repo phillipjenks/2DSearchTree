@@ -20,6 +20,7 @@
 #include <set>
 #include <map>
 #include <utility>
+#include <memory>
 
 // Utility enum to mark each search quadrant
 // The values are chosen to allow bitwise operations
@@ -64,7 +65,7 @@ public:
 	//		val - Value to test against the search space
 	// outputs:
 	//		returns true if the value belongs to the search space
-	virtual bool satisfies(const NodeCompare& nodeCompare, Value val) = 0;
+	virtual bool satisfies(const NodeCompare& nodeCompare, const Value& val) = 0;
 
 	// Returns whether or not two search spaces overlap
 	// Used to return all values that belong to a test search space
@@ -80,23 +81,20 @@ public:
 //=======================================
 // Main Tree Interface
 //=======================================
-template<class Value, class NodeCompare>
+template<class Value, class NodeCompare, class Predicate>
 class SearchTree2D {
-
-	using Predicate = SearchPredicate<Value, NodeCompare>;
-	using SetValue = std::set<Value>;
-
 public:
 
+	using SetValue = std::set<Value>;
 
-	// Constructors. A predicate should be provided as the tree will not operate without one
-	// Memory management for the predicate is assumed to be handled by the caller
-	SearchTree2D();
-	SearchTree2D(Predicate*);
+	// Default constructor
+	SearchTree2D() = default;
+
+	// Destructor
 	~SearchTree2D();
 
 	// Copy constructor
-	SearchTree2D(const SearchTree2D&);
+	SearchTree2D(const SearchTree2D&) = default;
 
 	// Move Constructor
 	SearchTree2D(SearchTree2D&&);
@@ -107,14 +105,8 @@ public:
 	// swap operation
 	friend void swap(SearchTree2D& left, SearchTree2D& right) {
 		using std::swap;
-
-		swap(left.m_predicate, right.m_predicate);
 		swap(left.m_tree, right.m_tree);
 	}
-
-	// Sets the predicate for the tree
-	// Memory management for the predicate is assumed to be handled by the caller
-	void setPredicate(Predicate*);
 
 	// Inserts a value into the tree
 	// This may leave the tree unbalanced
@@ -141,8 +133,10 @@ private:
 	class Node {
 	public:
 
-		// Constructor. Uses the parent's predicate
-		Node(Predicate* pred);
+		// Constructor
+		Node();
+
+		// Destructor
 		~Node();
 
 		// Copy constructor
@@ -155,9 +149,6 @@ private:
 		Node(Node&&) = delete;
 		Node& operator=(Node) = delete;
 		Node& operator=(Node&&) = delete;
-
-		// Sets the search predicate for this node and all child nodes
-		void setPredicate(Predicate* pred);
 
 		// Adds value to the node
 		void add(const Value& val);
@@ -181,12 +172,9 @@ private:
 
 	private:
 
-		using RegionMap = std::map<RegionCode, Node*>;
+		using RegionMap = std::map<RegionCode, std::unique_ptr<Node> >;
 		using QuadMap = std::map<RegionCode, NodeCompare&>;
 		using QuadPair = std::pair<RegionCode, NodeCompare&>;
-
-		// search predicate
-		Predicate* m_predicate;
 
 		// node's search space
 		NodeCompare m_compare;
@@ -213,51 +201,22 @@ private:
 		void setCompare(const NodeCompare& compare);
 	};
 
-	Predicate* m_predicate;
-	Node* m_tree;
+	Node m_tree;
 };
 
 // =========================================================
 // Main Tree Implementation
 // =========================================================
-// Overloaded constructor taking a predicate as an argument
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>::SearchTree2D(Predicate* pred)
-	: m_predicate(pred)
-	, m_tree(nullptr)
-{}
-
-// Default constructor
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>::SearchTree2D()
-	: m_predicate(nullptr)
-	, m_tree(nullptr)
-{}
-
 // Destructor
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>::~SearchTree2D() {
+template<class Value, class NodeCompare, class Predicate>
+SearchTree2D<Value, NodeCompare, Predicate>::~SearchTree2D() {
 
 	clear();
-	if (m_tree) {
-		delete m_tree;
-	}
-}
-
-// Copy Constructor
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>::SearchTree2D(const SearchTree2D& otherTree)
-	: m_predicate(otherTree.m_predicate)
-	, m_tree(nullptr)
-{
-	if (otherTree.m_tree) {
-		m_tree = new Node(*(otherTree.m_tree));
-	}
 }
 
 // Move constructor
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>::SearchTree2D(SearchTree2D&& otherTree)
+template<class Value, class NodeCompare, class Predicate>
+SearchTree2D<Value, NodeCompare, Predicate>::SearchTree2D(SearchTree2D&& otherTree)
 	: SearchTree2D()
 {
 	swap(*this, otherTree);
@@ -265,90 +224,63 @@ SearchTree2D<Value, NodeCompare>::SearchTree2D(SearchTree2D&& otherTree)
 
 // Assignment operator. Passing other by value handles both lvalue and rvalue references
 // lvalues will be copy contructed and rvalues will be move constructed
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>& SearchTree2D<Value, NodeCompare>::operator=(SearchTree2D<Value, NodeCompare> other) {
+template<class Value, class NodeCompare, class Predicate>
+SearchTree2D<Value, NodeCompare, Predicate>& SearchTree2D<Value, NodeCompare, Predicate>::operator=(SearchTree2D<Value, NodeCompare, Predicate> other) {
 	swap(*this, other);
 	return *this;
 }
 
-// Sets the predicate used by the tree
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::setPredicate(Predicate* pred) {
-	m_predicate = pred;
-	if (m_tree) {
-		m_tree->setPredicate(pred);
-	}
-}
-
 // Add a value to the tree
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::add(const Value& val) {
-	if (!m_predicate) {
-		return;
-	}
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::add(const Value& val) {
 
-	if (!m_tree) {
-		m_tree = new Node(m_predicate);
-	}
-
-	m_tree->add(val);
+	m_tree.add(val);
 }
 
 // Remove a value from the tree
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::remove(const Value& val) {
-	if (m_tree) {
-		m_tree->remove(val);
-	}
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::remove(const Value& val) {
+
+	m_tree.remove(val);
 }
 
 // Clear the tree of all values
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::clear() {
-	if (m_tree) {
-		m_tree->clear();
-	}
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::clear() {
+
+	m_tree.clear();
 }
 
 // Get values belonging to leafs whose search space satisfies the test compare
-template<class Value, class NodeCompare>
-auto SearchTree2D<Value, NodeCompare>::getNearbyValues(const NodeCompare& compare) const -> SetValue {
+template<class Value, class NodeCompare, class Predicate>
+auto SearchTree2D<Value, NodeCompare, Predicate>::getNearbyValues(const NodeCompare& compare) const -> SetValue {
 
-	if (m_tree) {
-		return m_tree->getNearbyValues(compare);
-	}
-	else {
-		return SetValue();
-	}
+	return m_tree.getNearbyValues(compare);
 }
 
 // Rebalance our tree
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::rebalance() {
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::rebalance() {
 
-	if (m_tree) {
-		// Build the root search space for our tree
-		m_tree->buildRootRegion();
+	// Build the root search space for our tree
+	m_tree.buildRootRegion();
 
-		// Rebalance the tree for the new search space
-		m_tree->rebalance();
-	}
+	// Rebalance the tree for the new search space
+	m_tree.rebalance();
 }
 
 // =========================================================
 // Node Implementation
 // =========================================================
-// Overloaded constructor taking a predicate as an argument
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>::Node::Node(SearchPredicate<Value, NodeCompare>* predicate)
-	: m_predicate(predicate)
-	, m_compare()
+// Default Constructor
+template<class Value, class NodeCompare, class Predicate>
+SearchTree2D<Value, NodeCompare, Predicate>::Node::Node()
+	: m_compare()
 	, m_mapRegions()
 	, m_data()
 {
-	if (predicate) {
-		m_compare = predicate->nilCompare();
-	}
+	Predicate predicate;
+	m_compare = predicate.nilCompare();
 
 	// build our child node mapping
 	m_mapRegions[RegionCode::UPPER_LEFT] = nullptr;
@@ -358,17 +290,16 @@ SearchTree2D<Value, NodeCompare>::Node::Node(SearchPredicate<Value, NodeCompare>
 }
 
 // Destructor
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>::Node::~Node() {
+template<class Value, class NodeCompare, class Predicate>
+SearchTree2D<Value, NodeCompare, Predicate>::Node::~Node() {
 
 	clear();
 }
 
 // Copy constructor
-template<class Value, class NodeCompare>
-SearchTree2D<Value, NodeCompare>::Node::Node(const Node& other)
-	: m_predicate(other.m_predicate)
-	, m_compare(other.m_compare)
+template<class Value, class NodeCompare, class Predicate>
+SearchTree2D<Value, NodeCompare, Predicate>::Node::Node(const Node& other)
+	: m_compare(other.m_compare)
 	, m_mapRegions()
 	, m_data(other.m_data)
 {
@@ -380,39 +311,22 @@ SearchTree2D<Value, NodeCompare>::Node::Node(const Node& other)
 
 	for (auto&& region : other.m_mapRegions) {
 		if (region.second) {
-			m_mapRegions[region.first] = new Node(*(region.second));
-		}
-	}
-}
-
-// Set the node's predicate
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::Node::setPredicate(SearchPredicate<Value, NodeCompare>* predicate) {
-	// set our predicate
-	m_predicate = predicate;
-
-	// set child predicates
-	for (auto&& region : m_mapRegions) {
-		if (region.second) {
-			region.second->setPredicate(predicate);
+			m_mapRegions[region.first] = std::unique_ptr<Node>(new Node(*(region.second)));
 		}
 	}
 }
 
 // Add a value to the node
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::Node::add(const Value& val) {
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::Node::add(const Value& val) {
 
-	// no predicate? We shouldn't add values if we have no predicate
-	if (!m_predicate) {
-		return;
-	}
+	Predicate predicate;
 
 	if (hasChildren()) {
 		bool wasAdded = false;
 		for (auto&& region : m_mapRegions) {
 			// Check children of they should hold the value
-			if (region.second && m_predicate->satisfies(region.second->m_compare, val)) {
+			if (region.second && predicate.satisfies(region.second->m_compare, val)) {
 				region.second->add(val);
 				wasAdded = true;
 			}
@@ -433,8 +347,8 @@ void SearchTree2D<Value, NodeCompare>::Node::add(const Value& val) {
 }
 
 // Remove a value from the node or its children
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::Node::remove(const Value& val) {
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::Node::remove(const Value& val) {
 
 	if (hasChildren()) {
 		for (auto&& region : m_mapRegions) {
@@ -448,8 +362,8 @@ void SearchTree2D<Value, NodeCompare>::Node::remove(const Value& val) {
 }
 
 // Clear the node and its children of all values
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::Node::clear() {
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::Node::clear() {
 	if (hasChildren()) {
 		for (auto&& region : m_mapRegions) {
 			if (region.second) {
@@ -462,9 +376,9 @@ void SearchTree2D<Value, NodeCompare>::Node::clear() {
 	m_data.clear();
 }
 
-// Get values belonging to child leafs whose search space satisfies the test compare
-template<class Value, class NodeCompare>
-auto SearchTree2D<Value, NodeCompare>::Node::getNearbyValues(const NodeCompare& compare) const -> SetValue {
+// Get values belonging to child leafs whos search space satisfies the test compare
+template<class Value, class NodeCompare, class Predicate>
+auto SearchTree2D<Value, NodeCompare, Predicate>::Node::getNearbyValues(const NodeCompare& compare) const -> SetValue {
 
 	// Our return set
 	SetValue nearbyVals;
@@ -478,9 +392,11 @@ auto SearchTree2D<Value, NodeCompare>::Node::getNearbyValues(const NodeCompare& 
 		}
 	}
 
+	Predicate predicate;
+
 	// Return our values if compare overlaps with our search space
 	// This will also return orphaned values that belong to this node but not its children
-	if (m_predicate && m_predicate->overlaps(m_compare, compare)) {
+	if (predicate.overlaps(m_compare, compare)) {
 
 		// std::set guarantees uniqueness (values may belong to more than one node)
 		nearbyVals.insert(m_data.begin(), m_data.end());
@@ -490,30 +406,26 @@ auto SearchTree2D<Value, NodeCompare>::Node::getNearbyValues(const NodeCompare& 
 }
 
 // Build a root search space based off of current data
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::Node::buildRootRegion() {
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::Node::buildRootRegion() {
 
-	if (!m_predicate) {
-		return;
-	}
+	Predicate predicate;
 
 	// Build our search space based off of our data
-	m_compare = m_predicate->buildRegionFromData(getAllChildValues());
+	m_compare = predicate.buildRegionFromData(getAllChildValues());
 }
 
 // Rebalance this node and its children
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::Node::rebalance() {
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::Node::rebalance() {
 
-	if (!m_predicate) {
-		return;
-	}
+	Predicate predicate;
 
 	SetValue setAllData = getAllChildValues();
 
 	// Remove data that no longer satisfies this node's compare
 	for (SetValue::iterator itSet = setAllData.begin(); itSet != setAllData.end(); ) {
-		if (!m_predicate->satisfies(m_compare, *itSet)) {
+		if (!predicate.satisfies(m_compare, *itSet)) {
 			setAllData.erase(itSet++);
 		}
 		else {
@@ -546,7 +458,7 @@ void SearchTree2D<Value, NodeCompare>::Node::rebalance() {
 			}
 
 			// Use our predicate to rebuild our quadrant search spaces
-			m_predicate->buildQuadrantsFromData(m_compare, setAllData, mapQuads);
+			predicate.buildQuadrantsFromData(m_compare, setAllData, mapQuads);
 
 			// Do we still need children?
 			if (shouldSubdivide(setAllData, mapQuads)) {
@@ -582,10 +494,10 @@ void SearchTree2D<Value, NodeCompare>::Node::rebalance() {
 
 			// Let's build some test quads and see if they will subdivide
 
-			NodeCompare ulComp = m_predicate->nilCompare();
-			NodeCompare urComp = m_predicate->nilCompare();
-			NodeCompare llComp = m_predicate->nilCompare();
-			NodeCompare lrComp = m_predicate->nilCompare();
+			NodeCompare ulComp = predicate.nilCompare();
+			NodeCompare urComp = predicate.nilCompare();
+			NodeCompare llComp = predicate.nilCompare();
+			NodeCompare lrComp = predicate.nilCompare();
 
 			QuadMap mapQuads;
 			mapQuads.insert(QuadPair(RegionCode::UPPER_LEFT, ulComp));
@@ -594,7 +506,7 @@ void SearchTree2D<Value, NodeCompare>::Node::rebalance() {
 			mapQuads.insert(QuadPair(RegionCode::LOWER_RIGHT, lrComp));
 
 			// Build our test quads from our data
-			m_predicate->buildQuadrantsFromData(m_compare, setAllData, mapQuads);
+			predicate.buildQuadrantsFromData(m_compare, setAllData, mapQuads);
 
 			// Do we need children?
 			if (shouldSubdivide(setAllData, mapQuads)) {
@@ -602,7 +514,7 @@ void SearchTree2D<Value, NodeCompare>::Node::rebalance() {
 				// We need children, so build some child nodes and set their search spaces
 				for (auto& region : m_mapRegions) {
 					if (!region.second) {
-						region.second = new Node(m_predicate);
+						region.second = std::unique_ptr<Node>(new Node());
 					}
 					region.second->setCompare(mapQuads.at(region.first));
 				}
@@ -631,8 +543,8 @@ void SearchTree2D<Value, NodeCompare>::Node::rebalance() {
 }
 
 // Test if this node has children
-template<class Value, class NodeCompare>
-bool SearchTree2D<Value, NodeCompare>::Node::hasChildren() const {
+template<class Value, class NodeCompare, class Predicate>
+bool SearchTree2D<Value, NodeCompare, Predicate>::Node::hasChildren() const {
 
 	// Check if we have at least one child
 	bool hasChild = false;
@@ -646,8 +558,8 @@ bool SearchTree2D<Value, NodeCompare>::Node::hasChildren() const {
 }
 
 // Get all values belonging to this node and its children
-template<class Value, class NodeCompare>
-auto SearchTree2D<Value, NodeCompare>::Node::getAllChildValues() const -> SetValue {
+template<class Value, class NodeCompare, class Predicate>
+auto SearchTree2D<Value, NodeCompare, Predicate>::Node::getAllChildValues() const -> SetValue {
 
 	// Gather all data belonging to this search space
 	SetValue setData;
@@ -667,20 +579,24 @@ auto SearchTree2D<Value, NodeCompare>::Node::getAllChildValues() const -> SetVal
 }
 
 // Delete children
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::Node::deleteChildren() {
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::Node::deleteChildren() {
 	for (auto& region : m_mapRegions) {
 		if (region.second) {
-			delete region.second;
-			region.second = nullptr;
+			region.second.reset(nullptr);
 		}
 	}
 }
 
 // Test whether or not this node needs to create children
-template<class Value, class NodeCompare>
-bool SearchTree2D<Value, NodeCompare>::Node::shouldSubdivide(const std::set<Value>& vecVals, const std::map<RegionCode, NodeCompare&>& mapQuads) const
+template<class Value, class NodeCompare, class Predicate>
+bool SearchTree2D<Value, NodeCompare, Predicate>::Node::shouldSubdivide(
+	const SearchTree2D<Value, NodeCompare, Predicate>::SetValue& vecVals, 
+	const QuadMap& mapQuads) const
 {
+
+	Predicate predicate; 
+
 	// Is there a value that doesn't satisfy all regions?
 	// If not, then all children will have the same values, so there is no need to subdivide
 	// This is an admittedly simple test, but it works for an initial implementation
@@ -689,7 +605,7 @@ bool SearchTree2D<Value, NodeCompare>::Node::shouldSubdivide(const std::set<Valu
 	bool inAllRegions = true;
 	for (auto&& val : vecVals) {
 		for (auto&& quad : mapQuads) {
-			if (!m_predicate->satisfies(quad.second, val)) {
+			if (!predicate.satisfies(quad.second, val)) {
 				inAllRegions = false;
 				break;
 			}
@@ -703,8 +619,8 @@ bool SearchTree2D<Value, NodeCompare>::Node::shouldSubdivide(const std::set<Valu
 }
 
 // Set the search space for this node
-template<class Value, class NodeCompare>
-void SearchTree2D<Value, NodeCompare>::Node::setCompare(const NodeCompare& compare) {
+template<class Value, class NodeCompare, class Predicate>
+void SearchTree2D<Value, NodeCompare, Predicate>::Node::setCompare(const NodeCompare& compare) {
 	m_compare = compare;
 }
 

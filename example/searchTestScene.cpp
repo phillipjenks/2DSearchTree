@@ -30,8 +30,7 @@ namespace test {
 }
 
 SearchTestScene::SearchTestScene()
-	: m_testPredicate(nullptr)
-	, m_tree()
+	: m_tree()
 {
 }
 
@@ -41,8 +40,6 @@ void SearchTestScene::load() {
 	using namespace orc;
 
 	// Create our predicate and tell the tree to use it
-	m_testPredicate = new TestPredicate();
-	m_tree.setPredicate(m_testPredicate);
 
 	// Create 200 random sprites
 	for(int i = 0; i < 200; ++i) {
@@ -99,15 +96,8 @@ void SearchTestScene::unload() {
 	m_treeThread.setFunc(nullptr);
 	m_treeThread.setInput(nullptr);
 
-	// Clear our predicate
-	if (m_testPredicate) {
-		delete m_testPredicate;
-		m_testPredicate = nullptr;
-	}
-
 	// Clear out our tree
 	m_tree.clear();
-	m_tree.setPredicate(nullptr);
 
 	// Remove now invalid sprite pointers
 	m_sprites.clear();

@@ -29,6 +29,8 @@ class SearchTestSprite;
 class TestPredicate : public SearchPredicate<SearchTestSprite*, orc::Collider> {
 public:
 
+	using SearchTestPtr = SearchTestSprite*;
+
 	// Default collider value defines a Rect at pos (0, 0) with a scale of (1, 1)
 	virtual orc::Collider nilCompare() override;
 
@@ -36,12 +38,10 @@ public:
 	virtual orc::Collider buildRegionFromData(const std::set<SearchTestSprite*>& data) override;
 
 	// Subdivides our root Collider into four quadrants
-	virtual void buildQuadrantsFromData(const orc::Collider& parentRegion,
-						const std::set<SearchTestSprite*>& vecData,
-						const std::map<RegionCode, orc::Collider&>& quads) override;
+	virtual void buildQuadrantsFromData(const orc::Collider& parentRegion, const std::set<SearchTestSprite*>& vecData, const std::map<RegionCode, orc::Collider&>& quads) override;
 
 	// Returns true if the sprite's Collider overlaps with the node's collider
-	virtual bool satisfies(const orc::Collider& nodeCompare, SearchTestSprite* valCompare) override;
+	virtual bool satisfies(const orc::Collider& nodeCompare, const SearchTestPtr& valCompare) override;
 
 	// Returns true if the two colliders overlap
 	virtual bool overlaps(const orc::Collider& compareLeft, const orc::Collider& compareRight) override;
